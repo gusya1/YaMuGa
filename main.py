@@ -1,12 +1,10 @@
-
-
 # YANDEX
 
 from yandex_music.client import Client
 from yandex_music import Album, Playlist
 import discord
 from discord.ext import commands
-
+import asyncio
 
 login_parameters = ('serheo99@yandex.ru', 'Sn32089461')
 
@@ -70,7 +68,7 @@ class YandexDriver(object):
 
     def __getTrackInfo(self, track) -> (str, str):
         list_of_DI = track.getDownloadInfo(True)
-        info_string = "%s -- %s -- %s"%(track.title, track.artists[0].name, track.albums[0].title)
+        info_string = "%s -- %s -- %s " % (track.title, track.artists[0].name, track.albums[0].title)
         link = None
         for info in list_of_DI:
             if info.codec == "mp3" and info.bitrate_in_kbps == 192:
@@ -83,6 +81,7 @@ class YandexDriver(object):
         self.current_number = 0
         self.queueStatus = False
 
+
 # DISCORD
 
 
@@ -94,14 +93,14 @@ bot = commands.Bot(command_prefix='!')
 
 
 class Music(commands.Cog):
-    
+
     def __init__(self, bot):
         self.bot = bot
         self.play_ctx = None
-    
+
     @commands.command(pass_context=True)
     async def play(self, ctx, *, arg):
-        await ctx.send("Search: \"%s\"..."%(arg))
+        await ctx.send("Search: \"%s\"... " % (arg))
         track = yDriver.searchTrack(arg)
         if track == None:
             await ctx.send("Track not found!")
@@ -112,7 +111,7 @@ class Music(commands.Cog):
     async def play_album(self, ctx, *, arg):
         await ctx.send("Search: \"%s\"..." % (arg))
         album_name = yDriver.initAlbumFromLink(arg)
-        if (not yDriver.queueStatus):
+        if not yDriver.queueStatus:
             await ctx.send("Album not found!")
             return
         await ctx.send("Found: %s" % (album_name))
@@ -128,7 +127,7 @@ class Music(commands.Cog):
                 vc.pause();
                 return
         await ctx.send("Nothing is playing now")
-        
+
     @commands.command()
     async def resume(self, ctx):
         """Resume player"""
@@ -165,22 +164,31 @@ class Music(commands.Cog):
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
         elif ctx.voice_client.is_playing():
-                ctx.voice_client.stop()
+            ctx.voice_client.stop()
 
     async def __playTrack(self, ctx, track):
         info_string, url = track
         source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url))
-        ctx.voice_client.play(source, after=await self.__afterTrack)
+        ctx.voice_client.play(source, after=self.__after_track)
         await ctx.send('Now playing: ' + info_string)
 
-    async def __afterTrack(self, error):
-        if error:
-            self.play_ctx.send("Player error: %s" % error)
-            return
-        if not yDriver.queueStatus:
-            return
+    def __after_track(self, error):
+        print("after")
+        f_send = self.play_ctx.send("Player error: %s" % error)
         track = yDriver.getNextTrack()
-        await self.__playTrack(self.play_ctx, track)
+        f_play = self.__playTrack(self.play_ctx, track)
+        f_sendt = asyncio.run_coroutine_threadsafe(f_send, self.bot.loop)
+        f_playt = asyncio.run_coroutine_threadsafe(f_play, self.bot.loop)
+        try:
+            if error is not None:
+                f_sendt.result()
+                return
+            if not yDriver.queueStatus:
+                return
+            f_playt.result()
+        except:
+            print("__afterTrack error")
+            pass
 
 
 bot.add_cog(Music(bot))
