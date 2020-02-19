@@ -1,95 +1,31 @@
 # YANDEX
 
-from yandex_music.client import Client
-from yandex_music import Album, Playlist
+
+from yandex_handler import YandexDriver
+from queue_containers import ContainersQueue
 import discord
 from discord.ext import commands
 import asyncio
 
-login_parameters = ('serheo99@yandex.ru', 'Sn32089461')
 
-
-class YandexDriver(object):
-
-    def __init__(self):
-        self.client = Client()
-        login, passwd = login_parameters
-        self.client = Client.from_credentials(login, passwd)
-        self.queueStatus = False
-        self.container: Album | Playlist
-        self.current_number: [int, int] | int
-
-    def searchTrack(self, reqest) -> (str, str):
-        search_result = self.client.search(reqest, type_="track")
-        track = search_result.tracks.results[0]
-        if track is None:
-            return None
-        return self.__getTrackInfo(track);
-
-    def initAlbumFromLink(self, url) -> str:
-        self.__resetQueue()
-        self.current_number = [0, 0]
-        #  сделать сплит урла
-        self.container = self.client.albumsWithTracks(url)
-        if self.container is None:
-            return None
-        self.queueStatus = True
-        return self.container.title
-
-    def getCurrentTrack(self) -> (str, str):
-        if isinstance(self.container, Album):
-            vol_num, track_num = self.current_number
-            track = self.container.volumes[vol_num][track_num]
-            return self.__getTrackInfo(track)
-        if isinstance(self.container, Playlist):
-            track = self.container.tracks[self.current_number].track
-            return self.__getTrackInfo(track)
-
-    def getNextTrack(self) -> (str, str):
-        if isinstance(self.container, Album):
-            vol_num, track_num = self.current_number
-            if track_num + 1 == len(self.container.volumes[vol_num]):
-                self.current_number[1] = 0
-                if vol_num + 1 == len(self.container.volumes):
-                    self.__resetQueue()
-                    return
-                self.current_number[0] += 1
-            else:
-                self.current_number[1] += 1
-                track = self.container.volumes[self.current_number[0]][self.current_number[1]]
-                return self.__getTrackInfo(track)
-        if isinstance(self.container, Playlist):
-            if self.current_number + 1 == len(self.container.tracks):
-                self.__resetQueue()
-                return
-            self.current_number + 1
-            track = self.container.tracks[self.current_number].track
-            return self.__getTrackInfo(track)
-
-    def __getTrackInfo(self, track) -> (str, str):
-        list_of_DI = track.getDownloadInfo(True)
-        info_string = "%s -- %s -- %s " % (track.title, track.artists[0].name, track.albums[0].title)
-        link = None
-        for info in list_of_DI:
-            if info.codec == "mp3" and info.bitrate_in_kbps == 192:
-                link = info.getDirectLink()
-                break
-        return info_string, link
-
-    def __resetQueue(self):
-        self.container = None
-        self.current_number = 0
-        self.queueStatus = False
 
 
 # DISCORD
 
 
 yDriver = YandexDriver()
+container_queue = ContainersQueue()
 # yDriver.getAlbumFromLink("9823194")
 
 TOKEN = 'Njc2NDU5NDQ1Nzc3MDcyMTMx.XkPngQ.tvpRDqztbDBESGgIxXz8q2vdp88'
 bot = commands.Bot(command_prefix='!')
+
+
+@bot.event
+async def on_ready():
+    print("Log in!")
+    print("Usename: %s" % bot.user.name)
+    print('ID: %s' % bot.user.id)
 
 
 class Music(commands.Cog):
@@ -99,23 +35,38 @@ class Music(commands.Cog):
         self.play_ctx = None
 
     @commands.command(pass_context=True)
+    async def emded(self, ctx):
+        emd_msg = discord.Embed()
+        await ctx.send(embed=emd_msg)
+
+    @commands.command(pass_context=True)
     async def play(self, ctx, *, arg):
-        await ctx.send("Search: \"%s\"... " % (arg))
-        track = yDriver.searchTrack(arg)
-        if track == None:
+        await ctx.send("Search: \"%s\"... " % arg)
+        container = yDriver.get_track_from_search(arg)
+        if container is None:
             await ctx.send("Track not found!")
+            return
+        container_queue.clear()
+        container_queue.append_container(container)
+        track = container_queue.next_track()
+        if track is None:
+            await ctx.send("Cannot load track!")
             return
         await self.__playTrack(ctx, track)
 
     @commands.command(pass_context=True)
     async def play_album(self, ctx, *, arg):
-        await ctx.send("Search: \"%s\"..." % (arg))
-        album_name = yDriver.initAlbumFromLink(arg)
-        if not yDriver.queueStatus:
+        await ctx.send("Search: \"%s\"..." % arg)
+        container = yDriver.get_album_from_link(arg)
+        if container is None:
             await ctx.send("Album not found!")
             return
-        await ctx.send("Found: %s" % (album_name))
-        track = yDriver.getCurrentTrack()
+        container_queue.clear()
+        container_queue.append_container(container)
+        track = container_queue.next_track()
+        if track is None:
+            await ctx.send("Cannot load track!")
+            return
         await self.__playTrack(ctx, track)
 
     @commands.command()
@@ -173,18 +124,17 @@ class Music(commands.Cog):
         await ctx.send('Now playing: ' + info_string)
 
     def __after_track(self, error):
-        print("after")
-        f_send = self.play_ctx.send("Player error: %s" % error)
-        track = yDriver.getNextTrack()
-        f_play = self.__playTrack(self.play_ctx, track)
-        f_sendt = asyncio.run_coroutine_threadsafe(f_send, self.bot.loop)
-        f_playt = asyncio.run_coroutine_threadsafe(f_play, self.bot.loop)
+        track = container_queue.next_track()
         try:
             if error is not None:
+                f_send = self.play_ctx.send("Player error: %s" % error)
+                f_sendt = asyncio.run_coroutine_threadsafe(f_send, self.bot.loop)
                 f_sendt.result()
                 return
-            if not yDriver.queueStatus:
+            if track is None:
                 return
+            f_play = self.__playTrack(self.play_ctx, track)
+            f_playt = asyncio.run_coroutine_threadsafe(f_play, self.bot.loop)
             f_playt.result()
         except:
             print("__afterTrack error")
