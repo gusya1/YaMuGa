@@ -15,7 +15,7 @@ container_queue = ContainersQueue()
 # container = yDriver.get_track_from_search("влюблённый металлист").container
 # for dinfo in container.getDownloadInfo():
 #     print("%s %d" % (dinfo.codec, dinfo.bitrate_in_kbps))
-TOKEN = 'NjgwNTQ2ODk0OTc1NTk4NjU1.XlBeuA.au5tb4xbhLIu3tlp8MNEads2U9k'
+TOKEN = 'Njc2NDU5NDQ1Nzc3MDcyMTMx.XlEOtA.9sAAi876fBvISbyDdoK4SRLyCTM'
 
 activity = discord.Activity(name="!help", type=discord.ActivityType.listening)
 
