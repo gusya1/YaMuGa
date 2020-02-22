@@ -7,24 +7,27 @@ import discord
 from discord.ext import commands
 import asyncio
 
-
-
-
 # DISCORD
 
 
 yDriver = YandexDriver()
 container_queue = ContainersQueue()
-# yDriver.getAlbumFromLink("9823194")
+# container = yDriver.get_track_from_search("влюблённый металлист").container
+# for dinfo in container.getDownloadInfo():
+#     print("%s %d" % (dinfo.codec, dinfo.bitrate_in_kbps))
+TOKEN = 'NjgwNTQ2ODk0OTc1NTk4NjU1.XlBeuA.au5tb4xbhLIu3tlp8MNEads2U9k'
 
-TOKEN = 'Njc2NDU5NDQ1Nzc3MDcyMTMx.XkPngQ.tvpRDqztbDBESGgIxXz8q2vdp88'
-bot = commands.Bot(command_prefix='!')
+activity = discord.Activity(name="!help", type=discord.ActivityType.listening)
+
+description = """Welcome to PrePrePreAlfa version 0.0.0.0.0.0.99 YaMuGa Bot!"""
+
+bot = commands.Bot(command_prefix='!', activity=activity, description=description)
 
 
 @bot.event
 async def on_ready():
     print("Log in!")
-    print("Usename: %s" % bot.user.name)
+    print("Username: %s" % bot.user.name)
     print('ID: %s' % bot.user.id)
 
 
@@ -35,12 +38,8 @@ class Music(commands.Cog):
         self.play_ctx = None
 
     @commands.command(pass_context=True)
-    async def emded(self, ctx):
-        emd_msg = discord.Embed()
-        await ctx.send(embed=emd_msg)
-
-    @commands.command(pass_context=True)
     async def play(self, ctx, *, arg):
+        """Play track from search. Usage: !play <search request>"""
         await ctx.send("Search: \"%s\"... " % arg)
         container = yDriver.get_track_from_search(arg)
         if container is None:
@@ -56,6 +55,7 @@ class Music(commands.Cog):
 
     @commands.command(pass_context=True)
     async def play_album(self, ctx, *, arg):
+        """Play album from URL. Usage: !play_album <URL>"""
         await ctx.send("Search: \"%s\"..." % arg)
         container = yDriver.get_album_from_link(arg)
         if container is None:
@@ -93,7 +93,7 @@ class Music(commands.Cog):
 
     @commands.command()
     async def volume(self, ctx, volume: int):
-        """Changes the player's volume"""
+        """Changes the player's volume. Usage: !volume <0-100>"""
         if ctx.voice_client is None:
             return await ctx.send("Not connected to a voice channel.")
         ctx.voice_client.source.volume = volume / 100
@@ -119,7 +119,8 @@ class Music(commands.Cog):
 
     async def __playTrack(self, ctx, track):
         info_string, url = track
-        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url))
+        # TODO попробовать сначала загружать на диск, а потом воспроизводить
+        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url, options="-b:a 2000M"))
         ctx.voice_client.play(source, after=self.__after_track)
         await ctx.send('Now playing: ' + info_string)
 
