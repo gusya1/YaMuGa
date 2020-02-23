@@ -139,6 +139,24 @@ class YandexDriver(object):
             return None
         return TrackContainer(album)
 
+    def get_playlist_from_link(self, url : str) -> Optional[TrackContainer]:
+        """https://music.yandex.ru/users/yamusic-trending/playlists/1000"""
+        correct_parts = ("https:", "", "music.yandex.ru", "users", None, "playlists", None)
+        parts = url.split("/")
+
+        if len(correct_parts) != len(parts):
+            return None
+        for i in range(len(correct_parts)):
+            if correct_parts[i] is None:
+                continue
+            if correct_parts[i] != parts[i]:
+                return None
+
+        playlist = self.client.usersPlaylists(parts[6], parts[4])
+        if playlist is None:
+            return None
+        return TrackContainer(playlist[0])
+
     def __resetQueue(self):
         self.container = None
         self.current_number = 0
