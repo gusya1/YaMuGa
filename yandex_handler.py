@@ -99,6 +99,15 @@ class TrackContainer(object):
                 return self.__get_track_info(self.container)
             return None
 
+    def first_track(self) -> (str, str):
+        if isinstance(self.container, Album):
+            self.current_number = [0, -1]
+        if isinstance(self.container, Playlist):
+            self.current_number = -1
+        if isinstance(self.container, Track):
+            self.current_number = 0
+        return self.next_track()
+
     # TODO сделать функцию first_track
 
     def __get_track_info(self, track: Track) -> (str, str):

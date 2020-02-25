@@ -27,6 +27,8 @@ class ContainersQueue(object):
             return None
         track = self.queue[self.container_number].prev_track()
         if track is None:
+            if self.container_number == 0:
+                return None
             self.container_number -= 1
             if self.queue[self.container_number] is None:
                 return None

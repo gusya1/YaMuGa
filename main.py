@@ -12,18 +12,15 @@ import asyncio
 
 yDriver = YandexDriver()
 container_queue = ContainersQueue()
-# container = yDriver.get_track_from_search("влюблённый металлист").container
-# for dinfo in container.getDownloadInfo():
-#     print("%s %d" % (dinfo.codec, dinfo.bitrate_in_kbps))
 
 token_file = open("token", "r")
 TOKEN = token_file.read()
 
 activity = discord.Activity(name="!help", type=discord.ActivityType.listening)
 
-description = """Welcome to PrePrePreAlfa version 0.0.0.0.0.0.99 YaMuGa Bot!"""
+description = """Welcome to PreAlfa version 0.1.1 YaMuGa Bot!"""
 
-bot = commands.Bot(command_prefix='!', activity=activity, description=description)
+bot = commands.Bot(command_prefix='#', activity=activity, description=description)
 
 
 @bot.event
@@ -38,6 +35,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.play_ctx = None
+        self.next_track_after = True
 
     @commands.command(pass_context=True)
     async def play(self, ctx, *, arg):
@@ -88,6 +86,28 @@ class Music(commands.Cog):
         await self.__playTrack(ctx, track)
 
     @commands.command()
+    async def next(self, ctx):
+        """Play next track"""
+        self.next_track_after = False
+        track = container_queue.next_track()
+        if track is None:
+            await ctx.send("The queue is over")
+            return
+        await self.__playTrack(ctx, track)
+        self.next_track_after = True
+
+    @commands.command()
+    async def prev(self, ctx):
+        """Play prev track"""
+        self.next_track_after = False
+        track = container_queue.prev_track()
+        if track is None:
+            await ctx.send("The queue is over")
+            return
+        await self.__playTrack(ctx, track)
+        self.next_track_after = True
+
+    @commands.command()
     async def pause(self, ctx):
         """Pause player"""
         vc = ctx.voice_client
@@ -125,6 +145,8 @@ class Music(commands.Cog):
     @play.before_invoke
     @play_album.before_invoke
     @play_playlist.before_invoke
+    @prev.before_invoke
+    @next.before_invoke
     async def ensure_voice(self, ctx):
         self.play_ctx = ctx
         if ctx.voice_client is None:
@@ -144,7 +166,10 @@ class Music(commands.Cog):
         await ctx.send('Now playing: ' + info_string)
 
     def __after_track(self, error):
-        track = container_queue.next_track()
+        track = None
+        if self.next_track_after:
+            print("__after_track if")
+            track = container_queue.next_track()
         try:
             if error is not None:
                 f_send = self.play_ctx.send("Player error: %s" % error)
@@ -154,6 +179,7 @@ class Music(commands.Cog):
             if track is None:
                 return
             f_play = self.__playTrack(self.play_ctx, track)
+            print("__after_track __playTrack")
             f_playt = asyncio.run_coroutine_threadsafe(f_play, self.bot.loop)
             f_playt.result()
         except:
