@@ -113,7 +113,7 @@ class Music(commands.Cog):
         vc = ctx.voice_client
         if vc:
             if vc.is_connected() and vc.is_playing():
-                vc.pause();
+                vc.pause()
                 return
         await ctx.send("Nothing is playing now")
 
@@ -123,11 +123,21 @@ class Music(commands.Cog):
         vc = ctx.voice_client
         if vc:
             if vc.is_paused():
-                vc.resume();
+                vc.resume()
             else:
                 await ctx.send("I already paused")
         else:
             await ctx.send("I don't work anyway")
+
+    @commands.command()
+    async def clear_queue(self, ctx):
+        """Clear queue"""
+        container_queue.clear()
+        vc = ctx.voice_client
+        if vc:
+            if vc.is_connected():
+                vc.stop()
+        await ctx.send("The queue cleared")
 
     @commands.command()
     async def volume(self, ctx, volume: int):
@@ -161,14 +171,13 @@ class Music(commands.Cog):
     async def __playTrack(self, ctx, track):
         info_string, url = track
         # TODO попробовать сначала загружать на диск, а потом воспроизводить
-        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url, options="-b:a 2000M"))
+        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url, options=""))
         ctx.voice_client.play(source, after=self.__after_track)
         await ctx.send('Now playing: ' + info_string)
 
     def __after_track(self, error):
         track = None
         if self.next_track_after:
-            print("__after_track if")
             track = container_queue.next_track()
         try:
             if error is not None:

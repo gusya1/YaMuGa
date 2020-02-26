@@ -119,6 +119,7 @@ class TrackContainer(object):
             if info.codec == "mp3" and info.bitrate_in_kbps == 192:
                 link = info.getDirectLink()
                 break
+        print(link)
         return info_string, link
 
 
