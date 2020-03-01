@@ -2,7 +2,7 @@ from yandex_music.client import Client
 from yandex_music import Album, Playlist, Track
 from typing import Union, Optional
 
-login_parameters = ('serheo99@yandex.ru', 'Sn32089461')
+# login_parameters = ('serheo99@yandex.ru', 'Sn32089461')
 
 
 class TrackContainer(object):
@@ -115,6 +115,8 @@ class TrackContainer(object):
         info_string = "%s -- %s -- %s " % (track.title, track.artists[0].name, track.albums[0].title)
         link = None
         # TODO поэксперементировать с битрейтом
+
+
         for info in list_of_di:
             if info.codec == "mp3" and info.bitrate_in_kbps == 192:
                 link = info.getDirectLink()
@@ -127,8 +129,8 @@ class YandexDriver(object):
 
     def __init__(self):
         self.client = Client()
-        login, passwd = login_parameters
-        self.client = Client.from_credentials(login, passwd)
+        # login, passwd = login_parameters
+        # self.client = Client.from_credentials(login, passwd)
         self.queueStatus = False
         self.container: Union[Album, Playlist]
         self.current_number: [int, int] | int

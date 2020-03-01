@@ -1,14 +1,13 @@
-# YANDEX
-
-
+from discord import Activity
 from yandex_handler import YandexDriver
 from queue_containers import ContainersQueue
+# import discord_logger
+from discord_logger import logger
 import discord
 from discord.ext import commands
 import asyncio
 
 # DISCORD
-
 
 yDriver = YandexDriver()
 container_queue = ContainersQueue()
@@ -16,11 +15,11 @@ container_queue = ContainersQueue()
 token_file = open("token", "r")
 TOKEN = token_file.read()
 
-activity = discord.Activity(name="!help", type=discord.ActivityType.listening)
+start_activity: Activity = discord.Activity(name="!help", type=discord.ActivityType.listening)
 
 description = """Welcome to PreAlfa version 0.1.1 YaMuGa Bot!"""
 
-bot = commands.Bot(command_prefix='#', activity=activity, description=description)
+bot = commands.Bot(command_prefix='#', activity=start_activity, description=description)
 
 
 @bot.event
@@ -30,60 +29,77 @@ async def on_ready():
     print('ID: %s' % bot.user.id)
 
 
+# @bot.event
+# async def on_error(event, *args, **kwargs):
+#     logger.warning("on_error")
+
+
 class Music(commands.Cog):
 
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, discord_bot):
+        self.bot = discord_bot
         self.play_ctx = None
         self.next_track_after = True
 
+    async def cog_command_error(self, ctx, error):
+        logger.error('In "%s" command error occurred: %s' % (ctx.command, error))
+        await ctx.send("I can't execute the command: %s" % error)
+
+    @commands.command(pass_context=True)
+    async def change_prefix(self, ctx, prefix):
+        """Changes the prefix to a custom one. \nUsage: <prefix>change_prefix <custom prefix>"""
+        try:
+            logger.warning("change_prefix")
+            if prefix == "":
+                raise commands.CommandError("Prefix cannot be empty.")
+            bot.command_prefix = prefix
+            activity = discord.Activity(name="%shelp" % prefix, type=discord.ActivityType.listening)
+            await bot.change_presence(activity=activity)
+            await ctx.send("Prefix changed to \"%s\"" % prefix)
+        except Exception:
+            logger.error(ctx, "Exception occurred: ")
+
     @commands.command(pass_context=True)
     async def play(self, ctx, *, arg):
-        """Play track from search. Usage: !play <search request>"""
+        """Play track from search. Usage: <prefix>play <search request>"""
         await ctx.send("Search: \"%s\"... " % arg)
         container = yDriver.get_track_from_search(arg)
         if container is None:
-            await ctx.send("Track not found!")
-            return
+            raise commands.CommandError("Track not found!")
         container_queue.clear()
         container_queue.append_container(container)
         track = container_queue.next_track()
         if track is None:
-            await ctx.send("Cannot load track!")
-            return
-        await self.__playTrack(ctx, track)
+            raise commands.CommandError("Cannot load track!")
+        await self.__play_track(ctx, track)
 
     @commands.command(pass_context=True)
     async def play_album(self, ctx, *, arg):
-        """Play album from URL. Usage: !play_album <URL>"""
+        """Play album from URL. Usage: <prefix>play_album <URL>"""
         await ctx.send("Search: \"%s\"..." % arg)
         container = yDriver.get_album_from_link(arg)
         if container is None:
-            await ctx.send("Album not found!")
-            return
+            raise commands.CommandError("Album not found!")
         container_queue.clear()
         container_queue.append_container(container)
         track = container_queue.next_track()
         if track is None:
-            await ctx.send("Cannot load track!")
-            return
-        await self.__playTrack(ctx, track)
+            raise commands.CommandError("Cannot load track!")
+        await self.__play_track(ctx, track)
 
     @commands.command(pass_context=True)
     async def play_playlist(self, ctx, *, arg):
-        """Play playlist from URL. Usage: !play_playlist <URL>"""
+        """Play playlist from URL. Usage: <prefix>play_playlist <URL>"""
         await ctx.send("Search: \"%s\"..." % arg)
         container = yDriver.get_playlist_from_link(arg)
         if container is None:
-            await ctx.send("Playlist not found!")
-            return
+            raise commands.CommandError("Playlist not found!")
         container_queue.clear()
         container_queue.append_container(container)
         track = container_queue.next_track()
         if track is None:
-            await ctx.send("Cannot load track!")
-            return
-        await self.__playTrack(ctx, track)
+            raise commands.CommandError("Cannot load track!")
+        await self.__play_track(ctx, track)
 
     @commands.command()
     async def next(self, ctx):
@@ -93,7 +109,7 @@ class Music(commands.Cog):
         if track is None:
             await ctx.send("The queue is over")
             return
-        await self.__playTrack(ctx, track)
+        await self.__play_track(ctx, track)
         self.next_track_after = True
 
     @commands.command()
@@ -104,7 +120,7 @@ class Music(commands.Cog):
         if track is None:
             await ctx.send("The queue is over")
             return
-        await self.__playTrack(ctx, track)
+        await self.__play_track(ctx, track)
         self.next_track_after = True
 
     @commands.command()
@@ -141,7 +157,7 @@ class Music(commands.Cog):
 
     @commands.command()
     async def volume(self, ctx, volume: int):
-        """Changes the player's volume. Usage: !volume <0-100>"""
+        """Changes the player's volume. Usage: <prefix>volume <0-100>"""
         if ctx.voice_client is None:
             return await ctx.send("Not connected to a voice channel.")
         ctx.voice_client.source.volume = volume / 100
@@ -163,12 +179,11 @@ class Music(commands.Cog):
             if ctx.author.voice:
                 await ctx.author.voice.channel.connect()
             else:
-                await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
         elif ctx.voice_client.is_playing():
             ctx.voice_client.stop()
 
-    async def __playTrack(self, ctx, track):
+    async def __play_track(self, ctx, track):
         info_string, url = track
         # TODO попробовать сначала загружать на диск, а потом воспроизводить
         source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url, options=""))
@@ -181,18 +196,15 @@ class Music(commands.Cog):
             track = container_queue.next_track()
         try:
             if error is not None:
-                f_send = self.play_ctx.send("Player error: %s" % error)
-                f_sendt = asyncio.run_coroutine_threadsafe(f_send, self.bot.loop)
-                f_sendt.result()
+                logger.error("Player error: %s" % error)
                 return
             if track is None:
                 return
-            f_play = self.__playTrack(self.play_ctx, track)
-            print("__after_track __playTrack")
+            f_play = self.__play_track(self.play_ctx, track)
             f_playt = asyncio.run_coroutine_threadsafe(f_play, self.bot.loop)
             f_playt.result()
-        except:
-            print("__afterTrack error")
+        except Exception:
+            logger.exception("__afterTrack error:")
             pass
 
 
