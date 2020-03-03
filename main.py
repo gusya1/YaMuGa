@@ -24,9 +24,7 @@ bot = commands.Bot(command_prefix='#', activity=start_activity, description=desc
 
 @bot.event
 async def on_ready():
-    print("Log in!")
-    print("Username: %s" % bot.user.name)
-    print('ID: %s' % bot.user.id)
+    logger.info("Log in! Username: %s  ID: %s" % (bot.user.name, bot.user.id))
 
 
 # @bot.event
@@ -183,10 +181,14 @@ class Music(commands.Cog):
         elif ctx.voice_client.is_playing():
             ctx.voice_client.stop()
 
+    def meth(self):
+        return "mp3", "192"
+
     async def __play_track(self, ctx, track):
         info_string, url = track
         # TODO попробовать сначала загружать на диск, а потом воспроизводить
-        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url, options=""))
+        source = await discord.FFmpegOpusAudio.from_probe(url, method=self.meth)
+        # source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(url, options=""))
         ctx.voice_client.play(source, after=self.__after_track)
         await ctx.send('Now playing: ' + info_string)
 
