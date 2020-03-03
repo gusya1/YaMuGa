@@ -19,7 +19,7 @@ start_activity: Activity = discord.Activity(name="!help", type=discord.ActivityT
 
 description = """Welcome to PreAlfa version 0.1.1 YaMuGa Bot!"""
 
-bot = commands.Bot(command_prefix='#', activity=start_activity, description=description)
+bot = commands.Bot(command_prefix='!', activity=start_activity, description=description)
 
 
 @bot.event
