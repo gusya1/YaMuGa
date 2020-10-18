@@ -2,7 +2,7 @@ from yandex_music.client import Client
 from yandex_music import Album, Playlist, Track
 from typing import Union, Optional
 
-# login_parameters = ('serheo99@yandex.ru', 'Sn32089461')
+login_parameters = ("", "")
 
 
 class TrackContainer(object):
@@ -90,7 +90,7 @@ class TrackContainer(object):
             track = self.container.volumes[vol_num][track_num]
             return self.__get_track_info(track)
         if isinstance(self.container, Playlist):
-            self.current_number = len(self.container.tracks - 1)
+            self.current_number = len(self.container.tracks) - 1
             track = self.container.tracks[self.current_number].track
             return self.__get_track_info(track)
         if isinstance(self.container, Track):
@@ -118,7 +118,8 @@ class TrackContainer(object):
 
 
         for info in list_of_di:
-            if info.codec == "mp3" and info.bitrate_in_kbps == 192:
+            # if info.codec == "mp3" and info.bitrate_in_kbps == 192:
+            if info.codec == "mp3":
                 link = info.getDirectLink()
                 break
         print(link)
@@ -127,10 +128,9 @@ class TrackContainer(object):
 
 class YandexDriver(object):
 
-    def __init__(self):
-        self.client = Client()
-        # login, passwd = login_parameters
-        # self.client = Client.from_credentials(login, passwd)
+    def __init__(self, login, passwd):
+        # self.client = Client()
+        self.client = Client.from_credentials(login, passwd)
         self.queueStatus = False
         self.container: Union[Album, Playlist]
         self.current_number: [int, int] | int

@@ -1,20 +1,34 @@
 from discord import Activity
-from yandex_handler import YandexDriver
-from queue_containers import ContainersQueue
+from bot.yandex_handler import YandexDriver
+from bot.queue_containers import ContainersQueue
 # import discord_logger
-from discord_logger import logger
+from bot.discord_logger import logger
 import discord
 from discord.ext import commands
 import asyncio
+import json
+# import bot.yandex_handler as yh
 
 # DISCORD
 
-yDriver = YandexDriver()
 container_queue = ContainersQueue()
 
-token_file = open("token", "r")
-TOKEN = token_file.read()
+TOKEN = ""
+USERNAME = ""
+PASSWORD = ""
 
+try:
+    auch_file = open("auch.json", "r")
+    json_doc = json.load(auch_file)
+    TOKEN = json_doc["token"]
+    USERNAME = json_doc["y_username"]
+    PASSWORD = json_doc["y_password"]
+except Exception as e:
+    logger.error("Load auch error: %s" % e)
+    exit(1)
+
+
+yDriver = YandexDriver(USERNAME, PASSWORD)
 start_activity: Activity = discord.Activity(name="!help", type=discord.ActivityType.listening)
 
 description = """Welcome to PreAlfa version 0.1.1 YaMuGa Bot!"""
@@ -210,5 +224,9 @@ class Music(commands.Cog):
             pass
 
 
-bot.add_cog(Music(bot))
-bot.run(TOKEN)
+try:
+    bot.add_cog(Music(bot))
+    bot.run(TOKEN)
+except discord.LoginFailure as e:
+    logger.error("Discord login: %s" % e)
+

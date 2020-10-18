@@ -1,4 +1,4 @@
-from yandex_handler import TrackContainer
+from bot.yandex_handler import TrackContainer
 
 
 class ContainersQueue(object):
